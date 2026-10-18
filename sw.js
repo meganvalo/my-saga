@@ -1,5 +1,5 @@
 // Offline cache. Bump CACHE when you want to force-refresh every device.
-const CACHE = 'my-saga-v1';
+const CACHE = 'my-saga-v2';
 const ASSETS = ['./','./index.html','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-512-maskable.png','./icons/apple-touch-icon.png','./icons/favicon-32.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS))); self.skipWaiting(); });
 self.addEventListener('activate', e => {

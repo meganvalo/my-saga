@@ -1032,7 +1032,7 @@
   <div class="lock-container">
     <div class="lock-header">
       <h1>my saga.</h1>
-      <p>Please enter your passcode to continue</p>
+      <p></p>
     </div>
     <div class="passcode-display">
       <div class="passcode-dot"></div>
@@ -1052,8 +1052,9 @@
       <button class="keypad-btn" data-key="9">9</button>
       <button class="control-btn" style="grid-column: 1" id="lockClear">Clear</button>
       <button class="keypad-btn" data-key="0">0</button>
-      <button class="control-btn" style="grid-column: 3" id="lockHelp">Help</button>
+      <button class="control-btn" style="grid-column: 3" id="lockHelp"></button>
     </div>
+    <div style="text-align:center;margin-top:18px"><button class="control-btn" id="lockCancel" style="display:none">Cancel</button></div>
   </div>
 </div>
 
@@ -1117,6 +1118,12 @@
           <button class="theme-btn" data-theme-choice="light">Light</button>
           <button class="theme-btn" data-theme-choice="dark">Dark</button>
         </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-label">SECURITY</div>
+        <p class="panel-desc">Your passcode is chosen by you and can't be recovered if forgotten. The app also re-locks after a minute away.</p>
+        <button class="panel-btn" id="changePassBtn">Change passcode</button>
+        <button class="panel-btn" id="lockNowBtn">Lock now</button>
       </div>
       <div class="panel-section">
         <div class="panel-label">YOUR DATA</div>
@@ -1759,52 +1766,129 @@ document.getElementById('landingEnterBtn').addEventListener('click', () => {
 });
 
 /* ---------------- Init ---------------- */
-let currentPasscode = '';
-const CORRECT_PASSCODE = '1234';
+/* ---------------- Passcode lock (user-chosen, salted PBKDF2 hash) ---------------- */
+const lockEl = document.getElementById('lock-screen');
+const altBtn = document.getElementById('lockHelp');
+const cancelBtn = document.getElementById('lockCancel');
+const LOCK_MSG = {
+  setup1: "Create a passcode. It can't be recovered if forgotten, so choose one you'll remember.",
+  setup2: 'Enter it once more to confirm.',
+  unlock: 'Enter your passcode to continue.',
+  verify: 'Enter your current passcode.'
+};
+let passRec = null, passLen = 6, lockMode = 'unlock', currentPasscode = '', firstEntry = '';
+let changing = false, lockBusy = false, lockReady = false, hiddenAt = 0;
 
-function handlePasscode() {
-  const dots = document.querySelectorAll('.passcode-dot');
-  dots.forEach((dot, i) => {
-    dot.classList.toggle('active', i < currentPasscode.length);
-  });
+const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const unb64 = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+async function hashPass(pass, salt){
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveBits']);
+  return b64(await crypto.subtle.deriveBits({ name:'PBKDF2', hash:'SHA-256', salt, iterations:200000 }, key, 256));
+}
+async function makeRecord(pass){
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  return { salt: b64(salt), hash: await hashPass(pass, salt), len: pass.length };
+}
+const checkPass = async pass => (await hashPass(pass, unb64(passRec.salt))) === passRec.hash;
+const codeLen = () => (lockMode === 'unlock' || lockMode === 'verify') ? passRec.len : passLen;
 
-  if (currentPasscode.length === 4) {
-    if (currentPasscode === CORRECT_PASSCODE) {
-      document.getElementById('lock-screen').classList.add('hidden');
-    } else {
-      // Shake effect or visual error
-      const container = document.querySelector('.lock-container');
-      container.style.animation = 'none';
-      container.offsetHeight; // trigger reflow
-      container.style.animation = 'shake 0.4s ease';
-      currentPasscode = '';
-      setTimeout(() => {
-        dots.forEach(dot => dot.classList.remove('active'));
-      }, 100);
-    }
+function renderDots(){
+  const box = document.querySelector('.passcode-display');
+  box.innerHTML = '<div class="passcode-dot"></div>'.repeat(codeLen());
+  box.querySelectorAll('.passcode-dot').forEach((d, i) => d.classList.toggle('active', i < currentPasscode.length));
+}
+function setLockMode(mode, msg){
+  lockMode = mode; currentPasscode = '';
+  document.querySelector('.lock-header p').textContent = msg || LOCK_MSG[mode];
+  altBtn.textContent = { setup1: passLen === 6 ? 'Use 4 digits' : 'Use 6 digits', setup2: 'Back', unlock: 'Forgot?', verify: '' }[mode];
+  altBtn.style.visibility = mode === 'verify' ? 'hidden' : 'visible';
+  cancelBtn.style.display = changing ? 'inline-block' : 'none';
+  renderDots();
+}
+function shake(){
+  const c = document.querySelector('.lock-container');
+  c.style.animation = 'none'; c.offsetHeight; c.style.animation = 'shake 0.4s ease';
+  setTimeout(() => { currentPasscode = ''; renderDots(); }, 150);
+}
+function unlockApp(){
+  changing = false; firstEntry = '';
+  lockEl.classList.add('hidden');
+  setTimeout(() => { setLockMode('unlock'); }, 450);
+}
+function showLock(){
+  document.querySelectorAll('#settings-modal,#stats-modal,#calendar-modal').forEach(m => m.classList.add('hidden'));
+  if (document.activeElement) document.activeElement.blur();
+  changing = false; setLockMode('unlock');
+  lockEl.classList.remove('hidden');
+}
+async function onComplete(code){
+  if (lockMode === 'unlock' || lockMode === 'verify'){
+    if (await checkPass(code)){ lockMode === 'verify' ? setLockMode('setup1') : unlockApp(); }
+    else shake();
+  } else if (lockMode === 'setup1'){
+    firstEntry = code; setLockMode('setup2');
+  } else if (code === firstEntry){
+    passRec = await makeRecord(code);
+    await dbSetSetting('passcode', passRec);
+    unlockApp();
+  } else {
+    firstEntry = ''; shake();
+    setTimeout(() => setLockMode('setup1', "Those didn't match. Try again."), 400);
   }
 }
+async function pressKey(d){
+  if (!lockReady || lockBusy || currentPasscode.length >= codeLen()) return;
+  currentPasscode += d; renderDots();
+  if (currentPasscode.length < codeLen()) return;
+  lockBusy = true;
+  try { await onComplete(currentPasscode); } finally { lockBusy = false; }
+}
+async function forgotReset(){
+  if (!confirm('Reset my saga.?\n\nA forgotten passcode cannot be recovered. Resetting permanently erases ALL entries on this device.')) return;
+  if ((prompt('Type DELETE to erase everything and start over.') || '').trim().toUpperCase() !== 'DELETE') return;
+  await dbClearEntries(); await dbSetSetting('passcode', null);
+  entries = []; activeId = null; passRec = null; changing = false;
+  renderLibrary(); renderEditor(); setLockMode('setup1');
+}
+async function initLock(){
+  if (!(window.crypto && crypto.subtle)){
+    document.querySelector('.lock-header p').textContent = 'A secure (https) connection is needed to set a passcode.';
+    return;
+  }
+  passRec = await dbGetSetting('passcode');
+  if (passRec && passRec.hash){ passLen = passRec.len; setLockMode('unlock'); }
+  else { passRec = null; setLockMode('setup1'); }
+  lockReady = true;
+}
 
-document.querySelectorAll('.keypad-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (currentPasscode.length < 4) {
-      currentPasscode += btn.dataset.key;
-      handlePasscode();
-    }
-  });
+document.querySelector('.keypad').addEventListener('click', ev => {
+  const k = ev.target.closest('.keypad-btn'); if (k) pressKey(k.dataset.key);
 });
-
-document.getElementById('lockClear').addEventListener('click', () => {
-  currentPasscode = '';
-  handlePasscode();
+document.getElementById('lockClear').addEventListener('click', () => { currentPasscode = ''; renderDots(); });
+altBtn.addEventListener('click', () => {
+  if (lockMode === 'unlock') forgotReset();
+  else if (lockMode === 'setup1'){ passLen = passLen === 6 ? 4 : 6; setLockMode('setup1'); }
+  else if (lockMode === 'setup2'){ firstEntry = ''; setLockMode('setup1'); }
 });
-
-document.getElementById('lockHelp').addEventListener('click', () => {
-  alert('The default demo passcode is 1234');
+cancelBtn.addEventListener('click', () => { changing = false; firstEntry = ''; lockEl.classList.add('hidden'); setLockMode('unlock'); });
+document.addEventListener('keydown', ev => {
+  if (lockEl.classList.contains('hidden')) return;
+  if (/^[0-9]$/.test(ev.key)) pressKey(ev.key);
+  else if (ev.key === 'Backspace'){ currentPasscode = currentPasscode.slice(0, -1); renderDots(); }
 });
+document.addEventListener('visibilitychange', () => {   // re-lock after 1 minute away
+  if (document.hidden){ hiddenAt = Date.now(); return; }
+  if (passRec && lockReady && lockEl.classList.contains('hidden') && hiddenAt && Date.now() - hiddenAt > 60000) showLock();
+});
+document.getElementById('changePassBtn').addEventListener('click', () => {
+  document.getElementById('settings-modal').classList.add('hidden');
+  changing = true; setLockMode('verify'); lockEl.classList.remove('hidden');
+});
+document.getElementById('lockNowBtn').addEventListener('click', showLock);
 
 async function initApp(){
   db = await openDB();
+  await initLock();
 
   const storedTheme = await dbGetSetting('theme');
   applyTheme(storedTheme || 'light');
