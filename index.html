@@ -1121,9 +1121,11 @@
       </div>
       <div class="panel-section">
         <div class="panel-label">SECURITY</div>
-        <p class="panel-desc">Your passcode is chosen by you and can't be recovered if forgotten. The app also re-locks after a minute away.</p>
+        <p class="panel-desc" id="secDesc"></p>
+        <button class="panel-btn" id="enablePassBtn">Turn on passcode</button>
         <button class="panel-btn" id="changePassBtn">Change passcode</button>
         <button class="panel-btn" id="lockNowBtn">Lock now</button>
+        <button class="panel-btn" id="disablePassBtn">Turn off passcode</button>
       </div>
       <div class="panel-section">
         <div class="panel-label">YOUR DATA</div>
@@ -1777,7 +1779,7 @@ const LOCK_MSG = {
   verify: 'Enter your current passcode.'
 };
 let passRec = null, passLen = 6, lockMode = 'unlock', currentPasscode = '', firstEntry = '';
-let changing = false, lockBusy = false, lockReady = false, hiddenAt = 0;
+let changing = false, pending = '', lockBusy = false, lockReady = false, hiddenAt = 0;
 
 const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
 const unb64 = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
@@ -1802,8 +1804,22 @@ function setLockMode(mode, msg){
   document.querySelector('.lock-header p').textContent = msg || LOCK_MSG[mode];
   altBtn.textContent = { setup1: passLen === 6 ? 'Use 4 digits' : 'Use 6 digits', setup2: 'Back', unlock: 'Forgot?', verify: '' }[mode];
   altBtn.style.visibility = mode === 'verify' ? 'hidden' : 'visible';
-  cancelBtn.style.display = changing ? 'inline-block' : 'none';
-  renderDots();
+  cancelBtn.textContent = changing ? 'Cancel' : 'Continue without a passcode';
+  cancelBtn.style.display = (changing || mode === 'setup1') ? 'inline-block' : 'none';
+  renderDots(); refreshSecurityUI();
+}
+function refreshSecurityUI(){
+  const on = !!(passRec && passRec.hash);
+  ['changePassBtn','lockNowBtn','disablePassBtn'].forEach(id => document.getElementById(id).style.display = on ? '' : 'none');
+  document.getElementById('enablePassBtn').style.display = on ? 'none' : '';
+  document.getElementById('secDesc').textContent = on
+    ? "Your passcode is chosen by you and can't be recovered if forgotten. The app also re-locks after a minute away."
+    : 'No passcode is set, so anyone who opens this app on this device can read your entries.';
+}
+async function turnOffLock(){
+  passRec = { off: true }; await dbSetSetting('passcode', passRec);
+  changing = false; pending = ''; firstEntry = '';
+  lockEl.classList.add('hidden'); refreshSecurityUI();
 }
 function shake(){
   const c = document.querySelector('.lock-container');
@@ -1811,7 +1827,7 @@ function shake(){
   setTimeout(() => { currentPasscode = ''; renderDots(); }, 150);
 }
 function unlockApp(){
-  changing = false; firstEntry = '';
+  changing = false; pending = ''; firstEntry = '';
   lockEl.classList.add('hidden');
   setTimeout(() => { setLockMode('unlock'); }, 450);
 }
@@ -1823,7 +1839,11 @@ function showLock(){
 }
 async function onComplete(code){
   if (lockMode === 'unlock' || lockMode === 'verify'){
-    if (await checkPass(code)){ lockMode === 'verify' ? setLockMode('setup1') : unlockApp(); }
+    if (await checkPass(code)){
+      if (lockMode === 'unlock') unlockApp();
+      else if (pending === 'disable') await turnOffLock();
+      else setLockMode('setup1');
+    }
     else shake();
   } else if (lockMode === 'setup1'){
     firstEntry = code; setLockMode('setup2');
@@ -1851,11 +1871,12 @@ async function forgotReset(){
   renderLibrary(); renderEditor(); setLockMode('setup1');
 }
 async function initLock(){
+  passRec = await dbGetSetting('passcode');
+  if (passRec && passRec.off){ lockEl.classList.add('hidden'); lockReady = true; refreshSecurityUI(); return; }
   if (!(window.crypto && crypto.subtle)){
     document.querySelector('.lock-header p').textContent = 'A secure (https) connection is needed to set a passcode.';
     return;
   }
-  passRec = await dbGetSetting('passcode');
   if (passRec && passRec.hash){ passLen = passRec.len; setLockMode('unlock'); }
   else { passRec = null; setLockMode('setup1'); }
   lockReady = true;
@@ -1870,7 +1891,15 @@ altBtn.addEventListener('click', () => {
   else if (lockMode === 'setup1'){ passLen = passLen === 6 ? 4 : 6; setLockMode('setup1'); }
   else if (lockMode === 'setup2'){ firstEntry = ''; setLockMode('setup1'); }
 });
-cancelBtn.addEventListener('click', () => { changing = false; firstEntry = ''; lockEl.classList.add('hidden'); setLockMode('unlock'); });
+cancelBtn.addEventListener('click', async () => {
+  if (changing){
+    changing = false; pending = ''; firstEntry = ''; lockEl.classList.add('hidden');
+    if (passRec && passRec.hash) setLockMode('unlock');
+  } else {   // first-run (or after a reset): continue without a passcode
+    passRec = { off: true }; await dbSetSetting('passcode', passRec);
+    lockEl.classList.add('hidden'); refreshSecurityUI();
+  }
+});
 document.addEventListener('keydown', ev => {
   if (lockEl.classList.contains('hidden')) return;
   if (/^[0-9]$/.test(ev.key)) pressKey(ev.key);
@@ -1878,11 +1907,19 @@ document.addEventListener('keydown', ev => {
 });
 document.addEventListener('visibilitychange', () => {   // re-lock after 1 minute away
   if (document.hidden){ hiddenAt = Date.now(); return; }
-  if (passRec && lockReady && lockEl.classList.contains('hidden') && hiddenAt && Date.now() - hiddenAt > 60000) showLock();
+  if (passRec && passRec.hash && lockReady && lockEl.classList.contains('hidden') && hiddenAt && Date.now() - hiddenAt > 60000) showLock();
 });
 document.getElementById('changePassBtn').addEventListener('click', () => {
   document.getElementById('settings-modal').classList.add('hidden');
-  changing = true; setLockMode('verify'); lockEl.classList.remove('hidden');
+  changing = true; pending = 'change'; setLockMode('verify'); lockEl.classList.remove('hidden');
+});
+document.getElementById('disablePassBtn').addEventListener('click', () => {
+  document.getElementById('settings-modal').classList.add('hidden');
+  changing = true; pending = 'disable'; setLockMode('verify'); lockEl.classList.remove('hidden');
+});
+document.getElementById('enablePassBtn').addEventListener('click', () => {
+  document.getElementById('settings-modal').classList.add('hidden');
+  changing = true; pending = 'enable'; setLockMode('setup1'); lockEl.classList.remove('hidden');
 });
 document.getElementById('lockNowBtn').addEventListener('click', showLock);
 
