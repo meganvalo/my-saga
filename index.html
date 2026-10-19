@@ -221,6 +221,9 @@
     text-overflow:ellipsis;
     margin-top:2px;
   }
+  .entry-row .snippet.title-line{ color:var(--charcoal); font-weight:500; }
+  .entry-row .snippet.body-line{ margin-top:1px; }
+  #lock-screen:not(.ready) .lock-container{ visibility:hidden; }
   .empty-search{
     padding:30px 24px;
     color:var(--gray);
@@ -1028,6 +1031,9 @@
   </div>
 </div>
 
+<script>
+try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('landing-screen').classList.add('hidden'); } catch (e) {}
+</script>
 <div id="lock-screen">
   <div class="lock-container">
     <div class="lock-header">
@@ -1356,15 +1362,16 @@ function fmtCreatedStamp(iso){
   return `Created ${monthNames[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} at ${h}:${mm} ${ampm}`;
 }
 function plainSnippet(html){
-  const tmp = document.createElement('div');
-  tmp.innerHTML = html;
-  return (tmp.textContent || '').trim().slice(0,60);
+  return (new DOMParser().parseFromString(html || '', 'text/html').body.textContent || '').trim().slice(0,90);
+}
+function esc(t){
+  return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 function matchesSearch(entry, q){
   if(!q) return true;
   q = q.toLowerCase();
-  const hay = [entry.title, plainSnippet(entry.html), entry.tags.join(' '), entry.journalDate].join(' ').toLowerCase();
+  const hay = [entry.title, new DOMParser().parseFromString(entry.html || '', 'text/html').body.textContent, entry.tags.join(' '), entry.journalDate].join(' ').toLowerCase();
   return hay.includes(q);
 }
 
@@ -1431,7 +1438,10 @@ function renderRow(e){
   const row = document.createElement('div');
   row.className = 'entry-row' + (e.id===activeId ? ' active' : '') + (e.pinned ? ' is-pinned' : '');
   row.dataset.id = e.id;
-  const snippet = e.title || plainSnippet(e.html) || 'Empty entry';
+  const bodyText = plainSnippet(e.html);
+  const lines = e.title
+    ? `<div class="snippet title-line">${esc(e.title)}</div>` + (bodyText ? `<div class="snippet body-line">${esc(bodyText)}</div>` : '')
+    : `<div class="snippet">${esc(bodyText || 'Empty entry')}</div>`;
   row.innerHTML = `
     <svg class="pin-mark" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 L12 10 M8 10 L16 10 L18 21 L6 21 Z" stroke="currentColor" stroke-width="1.8" fill="none"/></svg>
     <div class="meta">
@@ -1439,7 +1449,7 @@ function renderRow(e){
         <span class="date-label">${fmtShortDate(e.journalDate)}</span>
         ${e.photos && e.photos.length ? `<svg class="camera" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>` : ''}
       </div>
-      <div class="snippet">${snippet}</div>
+      ${lines}
     </div>
   `;
   row.addEventListener('click', ()=>{
@@ -1765,6 +1775,7 @@ document.getElementById('stats-modal').addEventListener('click', (e)=>{
 /* ---------------- Landing ---------------- */
 document.getElementById('landingEnterBtn').addEventListener('click', () => {
   document.getElementById('landing-screen').classList.add('hidden');
+  try { localStorage.setItem('mysaga_intro_seen', '1'); } catch (e) {}
 });
 
 /* ---------------- Init ---------------- */
@@ -1872,6 +1883,7 @@ async function forgotReset(){
 }
 async function initLock(){
   passRec = await dbGetSetting('passcode');
+  lockEl.classList.add('ready');
   if (passRec && passRec.off){ lockEl.classList.add('hidden'); lockReady = true; refreshSecurityUI(); return; }
   if (!(window.crypto && crypto.subtle)){
     document.querySelector('.lock-header p').textContent = 'A secure (https) connection is needed to set a passcode.';
