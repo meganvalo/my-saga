@@ -6,7 +6,7 @@ my saga. is a free, open-source journal app. There is no account, no server, no 
 
 It runs on iPhone, Android, Windows, Mac, and Linux, works fully offline, and installs like a normal app.
 
-**Open it here:** [https://YOUR-USERNAME.github.io/my-saga/](https://meganvalo.github.io/my-saga-diary-app/)
+**Open it here:** https://meganvalo.github.io/my-saga-diary-app/
 
 ---
 
@@ -152,4 +152,3 @@ Passcode and offline features require a secure context (`https://` or `localhost
 
 Issues and pull requests are welcome. Because the app is a single file, small focused changes are easiest to review. Please keep the project's core promise: **nothing leaves the device.** Changes that add tracking, analytics, or network calls with user data won't be accepted.
 
-## License
