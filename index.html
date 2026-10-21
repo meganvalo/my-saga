@@ -981,6 +981,32 @@
     .back-btn{ display:flex; }
     .journal-date{ font-size:22px; }
   }
+  .toolbar{ position:sticky; top:8px; z-index:20; box-shadow:0 3px 12px rgba(0,0,0,.08); }
+  .toolbar .done-btn{ display:none; }
+  .toolbar .tpl-open{ width:auto; padding:0 10px; font-size:13px; white-space:nowrap; }
+  .app{ height:100vh; height:100dvh; height:var(--app-h,100dvh); }
+  html,body{ overscroll-behavior-y:none; -webkit-tap-highlight-color:transparent; }
+  button{ touch-action:manipulation; }
+  .theme-toggle{ flex-wrap:wrap; }
+  .time-row{ margin-top:10px; font-size:13px; color:var(--gray); }
+  .time-row input{ font:inherit; padding:4px 6px; border:1px solid var(--line); border-radius:6px; background:var(--cream); color:var(--charcoal); }
+  .tpl-overlay{ position:fixed; inset:0; z-index:900; background:rgba(40,36,30,.45); align-items:center; justify-content:center; padding:20px; }
+  .tpl-card{ background:var(--ivory); color:var(--charcoal); border:1px solid var(--line); border-radius:14px; width:100%; max-width:380px; max-height:80vh; max-height:80dvh; overflow:auto; padding:16px; font-family:var(--font-body); }
+  .tpl-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .tpl-head button{ background:none; border:none; color:var(--gray); font-size:18px; padding:6px; }
+  .tpl-item{ display:block; width:100%; text-align:left; padding:12px 14px; margin-top:8px; background:var(--cream); border:1px solid var(--line); border-radius:10px; color:var(--charcoal); font:inherit; cursor:pointer; }
+  .tpl-item:hover{ border-color:var(--sage); }
+  @media (max-width:780px){
+    .search-box input{ font-size:16px; }
+    .toolbar{ width:100%; flex-wrap:nowrap; overflow-x:auto; top:4px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .toolbar::-webkit-scrollbar{ display:none; }
+    .toolbar button{ flex:0 0 auto; min-width:40px; min-height:40px; }
+    .toolbar .done-btn{ display:flex; align-items:center; position:sticky; left:0; background:var(--cream); color:var(--sage); font-weight:600; padding:0 12px; border-right:1px solid var(--line); }
+    .editor-inner{ padding:20px 16px 120px; }
+    .back-btn{ min-height:40px; }
+    .entry-row{ padding-top:14px; padding-bottom:14px; }
+    .theme-btn,.panel-btn,.new-entry-btn{ min-height:44px; }
+  }
 </style>
 </head>
 <body>
@@ -1031,6 +1057,13 @@
   </div>
 </div>
 
+<div id="tpl-modal" class="tpl-overlay" style="display:none">
+  <div class="tpl-card">
+    <div class="tpl-head"><b>Templates &amp; prompts</b><button type="button" id="tplClose" aria-label="Close">&#10005;</button></div>
+    <div id="tplList"></div>
+    <button type="button" class="tpl-item" id="promptBtn">&#10022; Insert a random writing prompt</button>
+  </div>
+</div>
 <script>
 try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('landing-screen').classList.add('hidden'); } catch (e) {}
 </script>
@@ -1123,7 +1156,10 @@ try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('la
         <div class="theme-toggle">
           <button class="theme-btn" data-theme-choice="light">Light</button>
           <button class="theme-btn" data-theme-choice="dark">Dark</button>
+          <button class="theme-btn" data-theme-choice="auto">Auto (night)</button>
+          <button class="theme-btn" data-theme-choice="system">Device</button>
         </div>
+        <div class="time-row" id="autoTimes" style="display:none">Dark from <input type="time" id="autoStart" value="19:00"> to <input type="time" id="autoEnd" value="07:00"></div>
       </div>
       <div class="panel-section">
         <div class="panel-label">SECURITY</div>
@@ -1136,6 +1172,8 @@ try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('la
       <div class="panel-section">
         <div class="panel-label">YOUR DATA</div>
         <p class="panel-desc">Everything you write is saved automatically on your device. Nothing is sent anywhere.</p>
+        <button class="panel-btn" id="importBtn">Import entries (my saga., Day One, .txt / .md)</button>
+        <input type="file" id="importFile" accept=".json,.txt,.md,.markdown,application/json,text/plain" multiple hidden>
         <button class="panel-btn" id="exportBtn">Export all entries as JSON</button>
         <button class="panel-btn danger" id="clearBtn">Delete all entries</button>
       </div>
@@ -1206,6 +1244,7 @@ try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('la
         <input class="title-input" id="titleInput" placeholder="Optional title">
 
         <div class="toolbar" id="toolbar">
+          <button type="button" class="done-btn" id="doneBtn">&#8249; Done</button>
           <button data-cmd="bold" title="Bold"><b>B</b></button>
           <button data-cmd="italic" title="Italic"><i>I</i></button>
           <button data-cmd="underline" title="Underline"><u>U</u></button>
@@ -1228,6 +1267,7 @@ try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('la
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
           </button>
           <button data-cmd="insertHorizontalRule" title="Divider">—</button>
+          <button type="button" class="tpl-open" id="tplBtn" title="Templates &amp; prompts">&#10022; Templates</button>
         </div>
 
         <div class="content-editable" id="contentEditable" contenteditable="true" data-placeholder="Your writing begins here..."></div>
@@ -1617,7 +1657,7 @@ document.getElementById('searchInput').addEventListener('input', (ev)=>{
 
 document.getElementById('newEntryBtn').addEventListener('click', async ()=>{
   const now = new Date();
-  const iso = now.toISOString().slice(0,10);
+  const iso = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   const id = 'e' + Math.random().toString(36).slice(2,8);
   const newEntry = {
     id, journalDate: iso, createdAt: now.toISOString(), updatedAt: now.toISOString(),
@@ -1638,18 +1678,6 @@ document.getElementById('backBtn').addEventListener('click', ()=>{
 });
 
 /* ---------------- Settings panel ---------------- */
-function applyTheme(theme){
-  currentTheme = theme === 'dark' ? 'dark' : 'light';
-  if(currentTheme === 'dark'){
-    document.documentElement.setAttribute('data-theme', 'dark');
-  } else {
-    document.documentElement.removeAttribute('data-theme');
-  }
-  document.querySelectorAll('.theme-btn').forEach(btn=>{
-    btn.classList.toggle('active', btn.dataset.themeChoice === currentTheme);
-  });
-}
-
 document.getElementById('settingsBtn').addEventListener('click', ()=>{
   document.getElementById('settings-modal').classList.remove('hidden');
 });
@@ -1662,7 +1690,7 @@ document.getElementById('settings-modal').addEventListener('click', (e)=>{
 document.querySelectorAll('.theme-btn').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
     applyTheme(btn.dataset.themeChoice);
-    await dbSetSetting('theme', currentTheme);
+    await dbSetSetting('theme', themeMode);
   });
 });
 
@@ -1935,11 +1963,133 @@ document.getElementById('enablePassBtn').addEventListener('click', () => {
 });
 document.getElementById('lockNowBtn').addEventListener('click', showLock);
 
+/* ---------------- Auto dark mode ---------------- */
+let themeMode = 'light', autoStart = '19:00', autoEnd = '07:00';
+const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+function isNight(){
+  const n = new Date(), m = n.getHours() * 60 + n.getMinutes(), st = toMin(autoStart), en = toMin(autoEnd);
+  return st > en ? (m >= st || m < en) : (m >= st && m < en);
+}
+function applyTheme(mode){
+  themeMode = ['light','dark','auto','system'].includes(mode) ? mode : 'light';
+  const dark = themeMode === 'dark' || (themeMode === 'auto' && isNight()) ||
+    (themeMode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+  currentTheme = dark ? 'dark' : 'light';
+  if (dark) document.documentElement.setAttribute('data-theme', 'dark'); else document.documentElement.removeAttribute('data-theme');
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#1B1A17' : '#F3EFE7');
+  document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.themeChoice === themeMode));
+  document.getElementById('autoTimes').style.display = themeMode === 'auto' ? '' : 'none';
+}
+setInterval(() => applyTheme(themeMode), 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) applyTheme(themeMode); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(themeMode));
+['autoStart','autoEnd'].forEach(id => document.getElementById(id).addEventListener('change', async e => {
+  if (!e.target.value) return;
+  if (id === 'autoStart') autoStart = e.target.value; else autoEnd = e.target.value;
+  await dbSetSetting(id, e.target.value); applyTheme(themeMode);
+}));
+
+/* ---------------- Floating toolbar, Done button, mobile keyboard ---------------- */
+document.getElementById('toolbar').addEventListener('mousedown', ev => ev.preventDefault()); // keep selection
+document.getElementById('doneBtn').addEventListener('click', ev => { ev.stopPropagation(); document.getElementById('backBtn').click(); });
+if (window.visualViewport){
+  const fit = () => {
+    if (visualViewport.scale > 1.01) return;   // don't fight pinch-zoom
+    document.documentElement.style.setProperty('--app-h', visualViewport.height + 'px');
+    window.scrollTo(0, 0);
+  };
+  visualViewport.addEventListener('resize', fit); visualViewport.addEventListener('scroll', fit); fit();
+}
+
+/* ---------------- Templates & prompts ---------------- */
+const sec = (h, t = 'p') => `<h3>${h}</h3>` + { p:'<p><br></p>', ul:'<ul><li><br></li></ul>', ol:'<ol><li><br></li><li><br></li><li><br></li></ol>' }[t];
+const TEMPLATES = [
+  { name:'Gratitude', body:[sec('Three things I’m grateful for','ol'), sec('Why they matter')] },
+  { name:'Daily reflection', body:[sec('Highlights'), sec('Challenges'), sec('What I learned'), sec('Tomorrow I will','ul')] },
+  { name:'Morning intentions', body:[sec('How I’m feeling'), sec('Top three priorities','ol'), sec('One thing I’m looking forward to')] },
+  { name:'Dream journal', body:[sec('What I dreamed'), sec('How it felt'), sec('Symbols or people I noticed','ul')] },
+  { name:'Weekly review', body:[sec('Wins','ul'), sec('Struggles','ul'), sec('Lessons'), sec('Focus for next week')] },
+  { name:'Mood check-in', body:[sec('Mood (1–10)'), sec('What’s influencing it'), sec('What would help right now')] }
+];
+const PROMPTS = ['What is one small thing that made today better?','What am I avoiding, and why?','Describe a moment from today I want to remember.','What would I tell myself a year ago?','What am I proud of this week?','What does my ideal ordinary day look like?','Who do I need to thank?','What drains my energy, and what restores it?','What am I curious about lately?','Write about a place that feels like home.','What am I holding onto that I could let go of?','What do I want more of in my life?'];
+const tplModal = document.getElementById('tpl-modal');
+const closeTpl = () => { tplModal.style.display = 'none'; };
+function insertIntoEntry(html, title){
+  if (!activeId) return;
+  const ed = document.getElementById('contentEditable'), ti = document.getElementById('titleInput');
+  if (title && !ti.value.trim()){ ti.value = title; ti.dispatchEvent(new Event('input')); }
+  ed.innerHTML = ed.innerText.trim() ? ed.innerHTML + html : html;
+  ed.dispatchEvent(new Event('input')); ed.focus();
+  const r = document.createRange(); r.selectNodeContents(ed); r.collapse(false);
+  const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  closeTpl();
+}
+TEMPLATES.forEach(t => {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'tpl-item'; b.textContent = t.name;
+  b.addEventListener('click', () => insertIntoEntry(t.body.join(''), t.name));
+  document.getElementById('tplList').appendChild(b);
+});
+document.getElementById('promptBtn').addEventListener('click', () =>
+  insertIntoEntry('<blockquote>' + esc(PROMPTS[Math.floor(Math.random() * PROMPTS.length)]) + '</blockquote><p><br></p>'));
+document.getElementById('tplBtn').addEventListener('click', ev => { ev.stopPropagation(); if (activeId) tplModal.style.display = 'flex'; });
+document.getElementById('tplClose').addEventListener('click', closeTpl);
+tplModal.addEventListener('click', ev => { if (ev.target === tplModal) closeTpl(); });
+
+/* ---------------- Import ---------------- */
+const mdInline = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[^*])\*(?!\*)(.+?)\*/g, '$1<i>$2</i>');
+function mdToHtml(md){
+  return md.replace(/\r/g, '').replace(/!\[[^\]]*\]\(dayone-moment:[^)]*\)/g, '').replace(/\\([.!#()\-+*_\[\]>])/g, '$1')
+    .split(/\n{2,}/).map(b => b.trim()).filter(Boolean).map(b => {
+      const L = b.split('\n');
+      if (L.every(l => /^\s*[-*+] /.test(l))) return '<ul>' + L.map(l => '<li>' + mdInline(l.replace(/^\s*[-*+] /, '')) + '</li>').join('') + '</ul>';
+      if (L.every(l => /^\s*\d+[.)] /.test(l))) return '<ol>' + L.map(l => '<li>' + mdInline(l.replace(/^\s*\d+[.)] /, '')) + '</li>').join('') + '</ol>';
+      const h = b.match(/^(#{1,3}) (.*)$/);
+      if (h && L.length === 1){ const n = Math.max(2, h[1].length); return `<h${n}>${mdInline(h[2])}</h${n}>`; }
+      if (L.every(l => /^>/.test(l))) return '<blockquote>' + L.map(l => mdInline(l.replace(/^> ?/, ''))).join('<br>') + '</blockquote>';
+      return '<p>' + L.map(mdInline).join('<br>') + '</p>';
+    }).join('');
+}
+const localISO = (d, tz) => { try { return d.toLocaleDateString('en-CA', tz ? { timeZone: tz } : undefined); } catch (e) { return d.toLocaleDateString('en-CA'); } };
+const mkEntry = o => Object.assign({ updatedAt:new Date().toISOString(), title:'', pinned:false, tags:[], html:'', photos:[], attachments:[] }, o);
+async function importFiles(files){
+  const have = new Set(entries.map(e => e.id)); let added = 0, skipped = 0, failed = 0;
+  const add = async e => { if (have.has(e.id)){ skipped++; return; } have.add(e.id); entries.push(e); await dbPutEntry(e); added++; };
+  for (const f of files){
+    try {
+      const text = await f.text();
+      if (/\.json$/i.test(f.name)){
+        const j = JSON.parse(text);
+        if (Array.isArray(j)){ for (const e of j) if (e && e.id && e.journalDate) await add(mkEntry(e)); }   // my saga. backup
+        else if (Array.isArray(j.entries)){                                                                  // Day One export
+          for (const d of j.entries){
+            const raw = (d.text || '').trim(), m = raw.match(/^#{1,2} (.+?)(\n+|$)/), created = new Date(d.creationDate);
+            await add(mkEntry({ id:'d1_' + (d.uuid || created.getTime()), createdAt:created.toISOString(), journalDate:localISO(created, d.timeZone),
+              title: m ? m[1].trim() : '', html: mdToHtml(m ? raw.slice(m[0].length) : raw), pinned: !!(d.isPinned || d.starred), tags: d.tags || [] }));
+          }
+        } else failed++;
+      } else {   // .txt / .md: one entry per file
+        const m = text.match(/^\s*#{1,2} (.+?)\n+/), dm = f.name.match(/(\d{4})-(\d{2})-(\d{2})/);
+        const when = dm ? new Date(+dm[1], dm[2] - 1, +dm[3], 12) : new Date(f.lastModified);
+        await add(mkEntry({ id:'f_' + f.name + '_' + f.size + '_' + f.lastModified, createdAt:when.toISOString(), journalDate:localISO(when),
+          title: m ? m[1].trim() : f.name.replace(/\.[^.]+$/, '').replace(/^\d{4}-\d{2}-\d{2}[ _-]*/, ''), html: mdToHtml(m ? text.slice(m[0].length) : text) }));
+      }
+    } catch (err) { failed++; }
+  }
+  renderLibrary();
+  alert(`Imported ${added} ${added === 1 ? 'entry' : 'entries'}.` + (skipped ? ` ${skipped} already here, skipped.` : '') + (failed ? ` ${failed} file(s) couldn’t be read.` : ''));
+}
+document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change', async e => { await importFiles([...e.target.files]); e.target.value = ''; });
+
 async function initApp(){
   db = await openDB();
   await initLock();
 
   const storedTheme = await dbGetSetting('theme');
+  autoStart = (await dbGetSetting('autoStart')) || autoStart;
+  autoEnd = (await dbGetSetting('autoEnd')) || autoEnd;
+  document.getElementById('autoStart').value = autoStart;
+  document.getElementById('autoEnd').value = autoEnd;
   applyTheme(storedTheme || 'light');
 
   const stored = await dbGetAllEntries();
