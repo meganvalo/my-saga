@@ -1059,6 +1059,18 @@
   .lib-scroll::-webkit-scrollbar{ width:8px; }
   .lib-scroll::-webkit-scrollbar-thumb{ background:var(--line); border-radius:8px; }
   .lib-foot{ flex:0 1 auto; max-height:42%; overflow-y:auto; border-top:1px solid var(--line); padding-top:10px; background:var(--cream); }
+  .body-split, .library{ min-height:0; }
+  .folder-picker, .sheet-head, #sheetBackdrop{ display:none; }
+  @media (max-width:780px){
+    .folder-picker{ display:flex; align-items:center; justify-content:space-between; width:calc(100% - 28px); margin:0 14px 12px; padding:11px 14px; border:1px solid var(--line); border-radius:10px; background:var(--ivory); color:var(--charcoal); font:inherit; font-size:14px; cursor:pointer; }
+    .lib-foot{ position:fixed; left:0; right:0; bottom:0; max-height:70vh; max-height:70dvh; z-index:800; border-top:none; border-radius:16px 16px 0 0; box-shadow:0 -8px 30px rgba(0,0,0,.18); transform:translateY(105%); visibility:hidden; transition:transform .25s ease, visibility 0s linear .25s; padding:6px 0 max(16px, env(safe-area-inset-bottom)); }
+    body.sheet-open .lib-foot{ transform:translateY(0); visibility:visible; transition:transform .25s ease, visibility 0s; }
+    body.sheet-open #sheetBackdrop{ display:block; position:fixed; inset:0; z-index:790; background:rgba(40,36,30,.4); }
+    .sheet-head{ display:flex; justify-content:space-between; align-items:center; padding:10px 18px 6px; font-weight:600; }
+    .sheet-head button{ background:none; border:none; color:var(--sage); font:inherit; font-size:15px; cursor:pointer; }
+    .side-list{ max-height:none; }
+    .lib-foot .side-row{ padding:12px; font-size:15px; }
+  }
 </style>
 </head>
 <body>
@@ -1109,6 +1121,7 @@
   </div>
 </div>
 
+<div id="sheetBackdrop"></div>
 <div id="lightbox" class="tpl-overlay" style="display:none;background:rgba(0,0,0,.88)"><img id="lbImg" alt="" style="max-width:96vw;max-height:90vh;border-radius:8px"></div>
 <div id="tpl-modal" class="tpl-overlay" style="display:none">
   <div class="tpl-card">
@@ -1263,6 +1276,7 @@ try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('la
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         New Entry
       </button>
+      <button type="button" class="folder-picker" id="folderPicker"><span id="fpLabel">All entries</span><span>&#9662;</span></button>
       <div class="lib-scroll">
       <div class="date-chip" id="dateChip" style="display:none"></div>
       <div id="libraryList"></div>
@@ -1283,6 +1297,7 @@ try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('la
       </div>
       </div>
       <div class="lib-foot">
+      <div class="sheet-head"><span>Folders &amp; tags</span><button type="button" id="sheetClose">Done</button></div>
       <div class="side-sec" id="folderSec">
         <div class="side-head"><button type="button" class="side-toggle"><span class="chev">&#9662;</span> FOLDERS</button><button type="button" class="side-add" id="sideAddFolder" title="New folder">+</button></div>
         <div class="side-list" id="folderNav"></div>
@@ -2315,7 +2330,7 @@ function renderFilterBar(){
   const nav = document.getElementById('folderNav'); nav.innerHTML = '';
   const row = (label, count, active, fn) => {
     const d = document.createElement('div'); d.className = 'side-row' + (active ? ' on' : '');
-    d.innerHTML = `<span>${esc(label)}</span><small>${count}</small>`; d.onclick = fn; nav.appendChild(d);
+    d.innerHTML = `<span>${esc(label)}</span><small>${count}</small>`; d.onclick = () => { fn(); closeSheet(); }; nav.appendChild(d);
   };
   row('All entries', entries.length, !libFilter, () => { libFilter = null; selectedCalDate = null; renderLibrary(); });
   folders.forEach(f => row(f.name, entries.filter(e => e.folder === f.id).length, on('folder', f.id), () => { libFilter = { t:'folder', v:f.id }; renderLibrary(); }));
@@ -2325,13 +2340,15 @@ function renderFilterBar(){
   const tn = document.getElementById('tagNav'); tn.innerHTML = '';
   tags.forEach(t => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'fchip' + (on('tag', t) ? ' on' : ''); b.textContent = '#' + t;
-    b.onclick = () => { libFilter = { t:'tag', v:t }; renderLibrary(); }; tn.appendChild(b);
+    b.onclick = () => { libFilter = { t:'tag', v:t }; renderLibrary(); closeSheet(); }; tn.appendChild(b);
   });
   const dc = document.getElementById('dateChip'); dc.style.display = selectedCalDate ? 'flex' : 'none';
   if (selectedCalDate){
     dc.innerHTML = `<span>Showing ${esc(fmtShortDate(selectedCalDate))}</span><button type="button">Clear ✕</button>`;
     dc.querySelector('button').onclick = () => { selectedCalDate = null; renderLibrary(); };
   }
+  document.getElementById('fpLabel').textContent = !libFilter ? 'All entries' : libFilter.t === 'tag' ? '#' + libFilter.v
+    : libFilter.v === '__none' ? 'Unfiled' : ((folders.find(f => f.id === libFilter.v) || {}).name || 'All entries');
 }
 function renderMeta(){
   const e = entries.find(x => x.id === activeId), sel = document.getElementById('folderSelect'), chips = document.getElementById('tagChips');
@@ -2501,6 +2518,11 @@ document.getElementById('galFile').addEventListener('change', async ev => {
   const t = document.querySelector('.g-track'); if (t) t.scrollTo({ left: t.scrollWidth });
 });
 document.getElementById('lightbox').addEventListener('click', () => { document.getElementById('lightbox').style.display = 'none'; });
+
+const closeSheet = () => document.body.classList.remove('sheet-open');
+document.getElementById('folderPicker').addEventListener('click', () => document.body.classList.add('sheet-open'));
+document.getElementById('sheetBackdrop').addEventListener('click', closeSheet);
+document.getElementById('sheetClose').addEventListener('click', closeSheet);
 
 async function initApp(){
   db = await openDB();
