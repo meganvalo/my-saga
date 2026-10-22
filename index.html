@@ -1007,6 +1007,24 @@
     .entry-row{ padding-top:14px; padding-bottom:14px; }
     .theme-btn,.panel-btn,.new-entry-btn{ min-height:44px; }
   }
+  .filter-bar{ display:none; gap:6px; padding:0 14px 10px; overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none; }
+  .filter-bar::-webkit-scrollbar{ display:none; }
+  .fchip{ flex:0 0 auto; border:1px solid var(--line); background:var(--cream); color:var(--charcoal); border-radius:999px; padding:5px 12px; font:inherit; font-size:12.5px; cursor:pointer; }
+  .fchip.on{ background:var(--sage-soft); border-color:var(--sage); color:var(--sage); }
+  .meta-row{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:2px 0 14px; }
+  .meta-row select,.meta-row input{ font:inherit; font-size:13px; padding:5px 8px; border:1px solid var(--line); border-radius:8px; background:var(--cream); color:var(--charcoal); }
+  .meta-row input{ width:96px; }
+  .tag-chip{ display:inline-flex; align-items:center; gap:2px; background:var(--sage-soft); color:var(--sage); border-radius:999px; padding:3px 4px 3px 10px; font-size:12.5px; margin-right:6px; }
+  .tag-chip button{ background:none; border:none; color:inherit; font-size:15px; line-height:1; padding:0 6px; cursor:pointer; }
+  .nav-btn{ background:none; border:1px solid var(--line); color:var(--charcoal); border-radius:8px; width:30px; height:30px; font-size:17px; cursor:pointer; }
+  .nav-btn:disabled{ opacity:.3; cursor:default; }
+  #contentEditable img{ max-width:100%; height:auto; border-radius:8px; margin:8px 0; display:block; }
+  .toolbar .hl-btn{ width:20px; height:20px; min-width:20px; min-height:20px; padding:0; border-radius:50%; margin:0 3px; border:1px solid var(--line); background:var(--c); font-size:11px; color:var(--gray); }
+  .toolbar .hl-btn.clear{ background:none; }
+  .folder-row{ display:flex; align-items:center; gap:8px; margin:6px 0; }
+  .folder-row span{ flex:1; }
+  .folder-row button{ background:var(--cream); border:1px solid var(--line); border-radius:6px; padding:4px 8px; font:inherit; font-size:12px; color:var(--charcoal); cursor:pointer; }
+  @media (max-width:780px){ .toolbar .hl-btn{ width:28px; height:28px; min-width:28px; min-height:28px; } }
 </style>
 </head>
 <body>
@@ -1152,6 +1170,11 @@ try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('la
         </button>
       </div>
       <div class="panel-section">
+        <div class="panel-label">FOLDERS</div>
+        <div id="folderList"></div>
+        <button class="panel-btn" id="addFolderBtn">New folder</button>
+      </div>
+      <div class="panel-section">
         <div class="panel-label">APPEARANCE</div>
         <div class="theme-toggle">
           <button class="theme-btn" data-theme-choice="light">Light</button>
@@ -1172,8 +1195,8 @@ try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('la
       <div class="panel-section">
         <div class="panel-label">YOUR DATA</div>
         <p class="panel-desc">Everything you write is saved automatically on your device. Nothing is sent anywhere.</p>
-        <button class="panel-btn" id="importBtn">Import entries (my saga., Day One, .txt / .md)</button>
-        <input type="file" id="importFile" accept=".json,.txt,.md,.markdown,application/json,text/plain" multiple hidden>
+        <button class="panel-btn" id="importBtn">Import entries (txt, csv, pdf, Day One, backups)</button>
+        <input type="file" id="importFile" accept=".json,.txt,.md,.markdown,.csv,.tsv,.pdf" multiple hidden>
         <button class="panel-btn" id="exportBtn">Export all entries as JSON</button>
         <button class="panel-btn danger" id="clearBtn">Delete all entries</button>
       </div>
@@ -1205,6 +1228,7 @@ try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('la
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         New Entry
       </button>
+      <div class="filter-bar" id="filterBar"></div>
       <div id="libraryList"></div>
       <div id="empty-library" class="empty-state hidden">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -1235,6 +1259,8 @@ try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('la
           <div class="journal-date" id="journalDate">Thursday, September 3, 2026</div>
           <div class="header-actions">
             <span class="save-status" id="saveStatus">Saved</span>
+            <button class="nav-btn" id="prevBtn" title="Previous (newer) entry">&#8249;</button>
+            <button class="nav-btn" id="nextBtn" title="Next (older) entry">&#8250;</button>
             <button class="pin-toggle" id="pinToggle" title="Pin this entry">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L12 10 M8 10 L16 10 L18 21 L6 21 Z"/></svg>
             </button>
@@ -1242,6 +1268,11 @@ try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('la
         </div>
 
         <input class="title-input" id="titleInput" placeholder="Optional title">
+        <div class="meta-row">
+          <select id="folderSelect" title="Folder"></select>
+          <span id="tagChips"></span>
+          <input id="tagInput" placeholder="+ add tag" maxlength="30">
+        </div>
 
         <div class="toolbar" id="toolbar">
           <button type="button" class="done-btn" id="doneBtn">&#8249; Done</button>
@@ -1268,6 +1299,13 @@ try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('la
           </button>
           <button data-cmd="insertHorizontalRule" title="Divider">—</button>
           <button type="button" class="tpl-open" id="tplBtn" title="Templates &amp; prompts">&#10022; Templates</button>
+          <button type="button" id="imgBtn" title="Add photo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg></button>
+          <input type="file" id="imgFile" accept="image/*" multiple hidden>
+          <span class="divider"></span>
+          <button type="button" class="hl-btn" data-hl="rgba(255,214,102,.6)" style="--c:rgba(255,214,102,.85)" title="Highlight yellow"></button>
+          <button type="button" class="hl-btn" data-hl="rgba(244,160,175,.55)" style="--c:rgba(244,160,175,.85)" title="Highlight pink"></button>
+          <button type="button" class="hl-btn" data-hl="rgba(150,205,140,.55)" style="--c:rgba(150,205,140,.85)" title="Highlight green"></button>
+          <button type="button" class="hl-btn clear" data-hl="transparent" title="Remove highlight">&#10005;</button>
         </div>
 
         <div class="content-editable" id="contentEditable" contenteditable="true" data-placeholder="Your writing begins here..."></div>
@@ -1435,20 +1473,23 @@ function renderLibrary(){
   emptyLibEl.classList.add('hidden');
   emptySearchEl.classList.add('hidden');
 
+  renderFilterBar();
   let filtered = entries.filter(e => matchesSearch(e, searchQuery));
+  if(libFilter) filtered = filtered.filter(e => libFilter.t === 'folder' ? e.folder === libFilter.v : (e.tags || []).includes(libFilter.v));
 
   if(selectedCalDate){
     filtered = filtered.filter(e => e.journalDate === selectedCalDate);
   }
 
   const sorted = [...filtered].sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+  visibleIds = sorted.map(e => e.id); updateNavBtns();
 
   if(entries.length === 0){
     emptyLibEl.classList.remove('hidden');
     return;
   }
 
-  if(searchQuery && filtered.length === 0){
+  if((searchQuery || libFilter || selectedCalDate) && filtered.length === 0){
     emptySearchEl.classList.remove('hidden');
     return;
   }
@@ -2037,7 +2078,7 @@ tplModal.addEventListener('click', ev => { if (ev.target === tplModal) closeTpl(
 
 /* ---------------- Import ---------------- */
 const mdInline = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[^*])\*(?!\*)(.+?)\*/g, '$1<i>$2</i>');
-function mdToHtml(md){
+function mdToHtml(md, soft){
   return md.replace(/\r/g, '').replace(/!\[[^\]]*\]\(dayone-moment:[^)]*\)/g, '').replace(/\\([.!#()\-+*_\[\]>])/g, '$1')
     .split(/\n{2,}/).map(b => b.trim()).filter(Boolean).map(b => {
       const L = b.split('\n');
@@ -2046,40 +2087,301 @@ function mdToHtml(md){
       const h = b.match(/^(#{1,3}) (.*)$/);
       if (h && L.length === 1){ const n = Math.max(2, h[1].length); return `<h${n}>${mdInline(h[2])}</h${n}>`; }
       if (L.every(l => /^>/.test(l))) return '<blockquote>' + L.map(l => mdInline(l.replace(/^> ?/, ''))).join('<br>') + '</blockquote>';
-      return '<p>' + L.map(mdInline).join('<br>') + '</p>';
+      return '<p>' + L.map(mdInline).join(soft ? ' ' : '<br>') + '</p>';
     }).join('');
 }
 const localISO = (d, tz) => { try { return d.toLocaleDateString('en-CA', tz ? { timeZone: tz } : undefined); } catch (e) { return d.toLocaleDateString('en-CA'); } };
 const mkEntry = o => Object.assign({ updatedAt:new Date().toISOString(), title:'', pinned:false, tags:[], html:'', photos:[], attachments:[] }, o);
+/* Date-aware splitting: one file can hold many entries */
+const MON = '(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
+const DOW = '(?:(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*\\.?,?\\s+)?';
+const monIdx = x => ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(x.slice(0,3).toLowerCase());
+const DATE_PATS = [
+  [new RegExp(`^${DOW}(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})(?!\\d)`, 'i'), m => [+m[1], +m[2]-1, +m[3]]],
+  [new RegExp(`^${DOW}(\\d{1,2})[/.-](\\d{1,2})[/.-](\\d{2,4})(?!\\d)`, 'i'), m => { let a = +m[1], b = +m[2], y = +m[3]; if (y < 100) y += 2000; return a > 12 ? [y, b-1, a] : [y, a-1, b]; }],
+  [new RegExp(`^${DOW}(${MON})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})(?!\\d)`, 'i'), m => [+m[3], monIdx(m[1]), +m[2]]],
+  [new RegExp(`^${DOW}(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MON})\\.?,?\\s+(\\d{4})(?!\\d)`, 'i'), m => [+m[3], monIdx(m[2]), +m[1]]]
+];
+function matchDate(str){
+  str = str.trim();
+  for (const [re, fn] of DATE_PATS){
+    const m = str.match(re); if (!m) continue;
+    const [y, mo, d] = fn(m);
+    if (y >= 1950 && y <= new Date().getFullYear() + 1 && mo >= 0 && mo < 12 && d >= 1 && d <= 31) return { y, mo, d, rest: str.slice(m[0].length) };
+  }
+  return null;
+}
+function parseHeading(line){
+  const s = line.replace(/^[\s#*_>\-–—|]*(?:date\s*[:\-]\s*)?[*_]*/i, '');
+  if (s.length > 120) return null;
+  const m = matchDate(s); if (!m) return null;
+  let rest = m.rest.replace(/^[\s*_,:;|–—-]*(?:at\s+)?/i, ''), h = 12, mi = 0;
+  const t = rest.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([ap])?\.?m?\.?/i);
+  if (t){
+    h = +t[1]; mi = +t[2];
+    if (t[3]){ const pm = t[3].toLowerCase() === 'p'; if (pm && h < 12) h += 12; if (!pm && h === 12) h = 0; }
+    rest = rest.slice(t[0].length).replace(/^[\s*_,:;|–—-]*(?:[A-Z]{2,4}\b)?[\s*_,:;|–—-]*/, '');
+  }
+  rest = rest.replace(/[*_]+$/, '').trim();
+  if (rest.length > 70 || /[.!?]\s+\w/.test(rest)) return null;   // prose, not a heading
+  return { date: new Date(m.y, m.mo, m.d, h, mi), title: rest };
+}
+function splitEntries(text, fb){
+  const lines = text.replace(/\r/g, '').split('\n'), marks = [];
+  lines.forEach((l, i) => { const p = parseHeading(l); if (p) marks.push(Object.assign({ i }, p)); });
+  if (marks.length >= 2 || (marks.length === 1 && marks[0].i < 3)){
+    const out = [];
+    marks.forEach((mk, k) => {
+      const body = lines.slice(mk.i + 1, k + 1 < marks.length ? marks[k + 1].i : lines.length).join('\n').trim();
+      if (body || mk.title) out.push({ date: mk.date, title: mk.title, body });
+    });
+    const pre = lines.slice(0, marks[0].i).join('\n').trim();
+    if (pre.length > 200) out.unshift({ date: fb, title: '', body: pre });
+    return out;
+  }
+  const parts = text.split(/\n\s*(?:[-=*_]\s*){3,}\s*\n/).map(p => p.trim()).filter(Boolean);
+  if (parts.length >= 2) return parts.map(p => ({ date: fb, title: '', body: p }));
+  return [{ date: fb, title: '', body: text.trim() }];
+}
+function parseCSV(t, d){
+  const rows = []; let r = [], c = '', q = false;
+  for (let i = 0; i < t.length; i++){
+    const ch = t[i];
+    if (q){ if (ch === '"'){ if (t[i+1] === '"'){ c += '"'; i++; } else q = false; } else c += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === d){ r.push(c); c = ''; }
+    else if (ch === '\n' || ch === '\r'){ if (ch === '\r' && t[i+1] === '\n') i++; r.push(c); rows.push(r); r = []; c = ''; }
+    else c += ch;
+  }
+  if (c || r.length){ r.push(c); rows.push(r); }
+  return rows.filter(x => x.some(v => v.trim()));
+}
+function csvParts(text, fb){
+  text = text.replace(/^\uFEFF/, '');
+  const first = text.split('\n')[0];
+  const dl = [',', ';', '\t'].map(x => [x, first.split(x).length]).sort((a, b) => b[1] - a[1])[0][0];
+  const rows = parseCSV(text, dl); if (rows.length < 2) return [];
+  let head = rows[0].map(h => h.trim().toLowerCase()), body = rows.slice(1);
+  const find = re => head.findIndex(h => re.test(h));
+  let di = find(/date|created|time|when|day/), ti = find(/title|subject|heading/), gi = find(/tag|label|categor/);
+  let xi = find(/^(text|entry|body|content|notes?|journal|description|message|memo)$/);
+  if (xi < 0) xi = find(/text|entry|body|content|note|journal|descr|message/);
+  if (di < 0 && matchDate(rows[0][0] || '')){ head = null; body = rows; di = 0; ti = gi = -1; }
+  if (xi < 0){
+    const avg = c => body.reduce((n, r) => n + (r[c] || '').length, 0) / body.length;
+    xi = [...Array(rows[0].length).keys()].filter(c => c !== di && c !== ti && c !== gi).sort((a, b) => avg(b) - avg(a))[0];
+  }
+  return body.map(r => {
+    const ds = (r[di] || '').trim(); let d = new Date(ds);
+    if (isNaN(d) || !/\d{4}/.test(ds)){ const m = matchDate(ds); d = m ? new Date(m.y, m.mo, m.d, 12) : fb; }
+    if (d.getFullYear() < 1950) d = fb;
+    return { date: d, title: ti >= 0 ? (r[ti] || '').trim() : '', body: (r[xi] || '').trim(),
+             tags: gi >= 0 ? (r[gi] || '').split(/[,;|]/).map(x => x.trim().toLowerCase()).filter(Boolean) : [] };
+  }).filter(p => p.body || p.title);
+}
+async function loadPdfJs(){
+  if (window.pdfjsLib) return window.pdfjsLib;
+  await new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'lib/pdf.min.js'; sc.onload = res; sc.onerror = () => rej(new Error('pdf lib')); document.head.appendChild(sc); });
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
+  return pdfjsLib;
+}
+async function pdfToText(file){
+  const lib = await loadPdfJs(), pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise, out = [];
+  for (let p = 1; p <= pdf.numPages; p++){
+    const items = (await (await pdf.getPage(p)).getTextContent()).items.filter(i => i.str !== undefined), rows = [];
+    items.forEach(i => {
+      const y = i.transform[5]; let r = rows.find(r => Math.abs(r.y - y) < 2.5);
+      if (!r){ r = { y, h: i.height || 10, parts: [] }; rows.push(r); }
+      r.parts.push({ x: i.transform[4], s: i.str });
+    });
+    rows.sort((a, b) => b.y - a.y);
+    let page = '', prev = null;
+    rows.forEach(r => {
+      const line = r.parts.sort((a, b) => a.x - b.x).map(q => q.s).join(' ').replace(/\s+/g, ' ').trim(); if (!line) return;
+      if (prev !== null) page += (prev - r.y > r.h * 1.9 ? '\n\n' : '\n');
+      page += line; prev = r.y;
+    });
+    out.push(page);
+  }
+  return out.join('\n\n');
+}
+const hash = x => { let h = 5381; for (let i = 0; i < x.length; i++) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + x.length.toString(36); };
+function fromPart(p, i, n, soft, baseTitle){
+  let body = p.body, title = p.title;
+  if (!title){
+    const m = body.match(/^#{1,2} (.+?)(\n+|$)/);
+    if (m){ title = m[1].trim(); body = body.slice(m[0].length); } else if (n === 1) title = baseTitle;
+  }
+  const d = new Date(p.date.getTime() + i);   // keeps file order for same-day entries
+  return mkEntry({ id: 'i_' + hash(localISO(p.date) + '|' + body.slice(0, 300)), createdAt: d.toISOString(), journalDate: localISO(p.date),
+                   title, tags: p.tags || [], html: mdToHtml(body, soft) });
+}
 async function importFiles(files){
-  const have = new Set(entries.map(e => e.id)); let added = 0, skipped = 0, failed = 0;
-  const add = async e => { if (have.has(e.id)){ skipped++; return; } have.add(e.id); entries.push(e); await dbPutEntry(e); added++; };
+  const cand = []; let failed = 0;
   for (const f of files){
     try {
-      const text = await f.text();
-      if (/\.json$/i.test(f.name)){
-        const j = JSON.parse(text);
-        if (Array.isArray(j)){ for (const e of j) if (e && e.id && e.journalDate) await add(mkEntry(e)); }   // my saga. backup
+      const ext = ((f.name.match(/\.([^.]+)$/) || [])[1] || '').toLowerCase();
+      const dm = f.name.match(/(\d{4})-(\d{2})-(\d{2})/);
+      const fb = dm ? new Date(+dm[1], dm[2] - 1, +dm[3], 12) : new Date(f.lastModified);
+      const baseTitle = f.name.replace(/\.[^.]+$/, '').replace(/^\d{4}-\d{2}-\d{2}[ _-]*/, '');
+      if (ext === 'json'){
+        const j = JSON.parse(await f.text());
+        if (Array.isArray(j)){ for (const e of j) if (e && e.id && e.journalDate) cand.push(mkEntry(e)); }   // my saga. backup
         else if (Array.isArray(j.entries)){                                                                  // Day One export
           for (const d of j.entries){
             const raw = (d.text || '').trim(), m = raw.match(/^#{1,2} (.+?)(\n+|$)/), created = new Date(d.creationDate);
-            await add(mkEntry({ id:'d1_' + (d.uuid || created.getTime()), createdAt:created.toISOString(), journalDate:localISO(created, d.timeZone),
+            cand.push(mkEntry({ id: 'd1_' + (d.uuid || created.getTime()), createdAt: created.toISOString(), journalDate: localISO(created, d.timeZone),
               title: m ? m[1].trim() : '', html: mdToHtml(m ? raw.slice(m[0].length) : raw), pinned: !!(d.isPinned || d.starred), tags: d.tags || [] }));
           }
         } else failed++;
-      } else {   // .txt / .md: one entry per file
-        const m = text.match(/^\s*#{1,2} (.+?)\n+/), dm = f.name.match(/(\d{4})-(\d{2})-(\d{2})/);
-        const when = dm ? new Date(+dm[1], dm[2] - 1, +dm[3], 12) : new Date(f.lastModified);
-        await add(mkEntry({ id:'f_' + f.name + '_' + f.size + '_' + f.lastModified, createdAt:when.toISOString(), journalDate:localISO(when),
-          title: m ? m[1].trim() : f.name.replace(/\.[^.]+$/, '').replace(/^\d{4}-\d{2}-\d{2}[ _-]*/, ''), html: mdToHtml(m ? text.slice(m[0].length) : text) }));
+      } else if (ext === 'csv' || ext === 'tsv'){
+        const parts = csvParts(await f.text(), fb); parts.forEach((p, i) => cand.push(fromPart(p, i, parts.length, false, baseTitle)));
+      } else {
+        const pdf = ext === 'pdf', parts = splitEntries(pdf ? await pdfToText(f) : await f.text(), fb);
+        parts.forEach((p, i) => cand.push(fromPart(p, i, parts.length, pdf, baseTitle)));
       }
-    } catch (err) { failed++; }
+    } catch (err) { console.error(err); failed++; }
   }
+  const have = new Set(entries.map(e => e.id)), seen = new Set(), fresh = [];
+  cand.forEach(e => { if (!have.has(e.id) && !seen.has(e.id)){ seen.add(e.id); fresh.push(e); } });
+  const skipped = cand.length - fresh.length;
+  if (!fresh.length){ alert(failed ? 'Couldn’t read that file.' : skipped ? 'Those entries are already in my saga.' : 'No entries found in that file.'); return; }
+  const ds = fresh.map(e => e.journalDate).sort();
+  if (!confirm(`Found ${fresh.length} ${fresh.length === 1 ? 'entry' : 'entries'} (${ds[0]} to ${ds[ds.length - 1]})` +
+      (skipped ? `, ${skipped} already here` : '') + (failed ? `, ${failed} file(s) unreadable` : '') + '.\n\nImport them?')) return;
+  for (const e of fresh){ entries.push(e); await dbPutEntry(e); }
   renderLibrary();
-  alert(`Imported ${added} ${added === 1 ? 'entry' : 'entries'}.` + (skipped ? ` ${skipped} already here, skipped.` : '') + (failed ? ` ${failed} file(s) couldn’t be read.` : ''));
+  alert(`Imported ${fresh.length} ${fresh.length === 1 ? 'entry' : 'entries'}.`);
 }
 document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
 document.getElementById('importFile').addEventListener('change', async e => { await importFiles([...e.target.files]); e.target.value = ''; });
+
+/* ---------------- Folders, tags, filters ---------------- */
+let folders = [], libFilter = null, visibleIds = [];
+const saveFolders = () => dbSetSetting('folders', folders);
+function renderFilterBar(){
+  const bar = document.getElementById('filterBar'); bar.innerHTML = '';
+  const tags = [...new Set(entries.flatMap(e => e.tags || []))].sort();
+  if (libFilter && !(libFilter.t === 'folder' ? folders.some(f => f.id === libFilter.v) : tags.includes(libFilter.v))) libFilter = null;
+  if (!folders.length && !tags.length && !selectedCalDate){ bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  const chip = (label, on, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'fchip' + (on ? ' on' : ''); b.textContent = label; b.onclick = fn; bar.appendChild(b); };
+  chip('All', !libFilter && !selectedCalDate, () => { libFilter = null; selectedCalDate = null; renderLibrary(); });
+  folders.forEach(f => chip(f.name, libFilter && libFilter.t === 'folder' && libFilter.v === f.id, () => { libFilter = { t:'folder', v:f.id }; renderLibrary(); }));
+  tags.forEach(t => chip('#' + t, libFilter && libFilter.t === 'tag' && libFilter.v === t, () => { libFilter = { t:'tag', v:t }; renderLibrary(); }));
+  if (selectedCalDate) chip('Date: ' + fmtShortDate(selectedCalDate) + ' ✕', true, () => { selectedCalDate = null; renderLibrary(); });
+}
+function renderMeta(){
+  const e = entries.find(x => x.id === activeId), sel = document.getElementById('folderSelect'), chips = document.getElementById('tagChips');
+  if (!e){ chips.innerHTML = ''; return; }
+  sel.innerHTML = '<option value="">No folder</option>' + folders.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('') + '<option value="__new">+ New folder…</option>';
+  sel.value = e.folder || '';
+  chips.innerHTML = (e.tags || []).map(t => `<span class="tag-chip">#${esc(t)}<button type="button" data-tag="${esc(t)}" aria-label="Remove tag">×</button></span>`).join('');
+}
+async function saveMeta(e){ e.updatedAt = new Date().toISOString(); await dbPutEntry(e); renderLibrary(); renderMeta(); showSaveStatus('Saved'); }
+const _renderEditor = renderEditor;
+renderEditor = function(){ _renderEditor(); renderMeta(); updateNavBtns(); };
+document.getElementById('folderSelect').addEventListener('change', async ev => {
+  const e = entries.find(x => x.id === activeId); if (!e) return;
+  if (ev.target.value === '__new'){
+    const name = (prompt('Folder name') || '').trim();
+    if (!name){ renderMeta(); return; }
+    const f = { id: 'f' + Math.random().toString(36).slice(2, 8), name }; folders.push(f); await saveFolders(); e.folder = f.id;
+  } else e.folder = ev.target.value || null;
+  await saveMeta(e);
+});
+async function addTag(v){
+  const e = entries.find(x => x.id === activeId); v = v.replace(/^#+/, '').trim().toLowerCase().slice(0, 30);
+  if (!e || !v) return;
+  e.tags = e.tags || []; if (!e.tags.includes(v)) e.tags.push(v);
+  await saveMeta(e);
+}
+const tagInput = document.getElementById('tagInput');
+tagInput.addEventListener('keydown', async ev => { if (ev.key === 'Enter' || ev.key === ','){ ev.preventDefault(); const v = tagInput.value; tagInput.value = ''; await addTag(v); tagInput.focus(); } });
+tagInput.addEventListener('blur', async () => { const v = tagInput.value; tagInput.value = ''; await addTag(v); });
+document.getElementById('tagChips').addEventListener('click', async ev => {
+  const b = ev.target.closest('button[data-tag]'), e = entries.find(x => x.id === activeId); if (!b || !e) return;
+  e.tags = (e.tags || []).filter(t => t !== b.dataset.tag); await saveMeta(e);
+});
+function renderFolderManager(){
+  const box = document.getElementById('folderList');
+  box.innerHTML = folders.length ? '' : '<p class="panel-desc">No folders yet.</p>';
+  folders.forEach(f => {
+    const r = document.createElement('div'); r.className = 'folder-row';
+    r.innerHTML = `<span>${esc(f.name)}</span><button type="button" data-a="ren" data-id="${f.id}">Rename</button><button type="button" data-a="del" data-id="${f.id}">Delete</button>`;
+    box.appendChild(r);
+  });
+}
+document.getElementById('settingsBtn').addEventListener('click', renderFolderManager);
+document.getElementById('addFolderBtn').addEventListener('click', async () => {
+  const name = (prompt('Folder name') || '').trim(); if (!name) return;
+  folders.push({ id: 'f' + Math.random().toString(36).slice(2, 8), name }); await saveFolders(); renderFolderManager(); renderLibrary(); renderMeta();
+});
+document.getElementById('folderList').addEventListener('click', async ev => {
+  const b = ev.target.closest('button[data-a]'); if (!b) return;
+  const f = folders.find(x => x.id === b.dataset.id); if (!f) return;
+  if (b.dataset.a === 'ren'){ const n = (prompt('Rename folder', f.name) || '').trim(); if (n) f.name = n; }
+  else {
+    if (!confirm(`Delete the folder “${f.name}”? Its entries are kept and become unfiled.`)) return;
+    folders = folders.filter(x => x !== f);
+    for (const e of entries) if (e.folder === f.id){ e.folder = null; await dbPutEntry(e); }
+  }
+  await saveFolders(); renderFolderManager(); renderLibrary(); renderMeta();
+});
+
+/* ---------------- Highlight + photos ---------------- */
+document.querySelectorAll('.hl-btn').forEach(b => b.addEventListener('click', ev => {
+  ev.stopPropagation();
+  document.getElementById('contentEditable').focus();
+  document.execCommand('styleWithCSS', false, true);
+  document.execCommand('hiliteColor', false, b.dataset.hl);
+}));
+let savedRange = null;
+async function photoToDataUrl(file){
+  const bmp = await createImageBitmap(file), sc = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.82);
+}
+document.getElementById('imgBtn').addEventListener('click', ev => {
+  ev.stopPropagation();
+  const sel = getSelection(), ed = document.getElementById('contentEditable');
+  savedRange = (sel.rangeCount && ed.contains(sel.anchorNode)) ? sel.getRangeAt(0).cloneRange() : null;
+  document.getElementById('imgFile').click();
+});
+document.getElementById('imgFile').addEventListener('change', async ev => {
+  const files = [...ev.target.files]; ev.target.value = ''; if (!files.length || !activeId) return;
+  const ed = document.getElementById('contentEditable'); ed.focus();
+  const sel = getSelection(); sel.removeAllRanges();
+  if (savedRange) sel.addRange(savedRange); else { const r = document.createRange(); r.selectNodeContents(ed); r.collapse(false); sel.addRange(r); }
+  for (const f of files){ try { document.execCommand('insertImage', false, await photoToDataUrl(f)); } catch (e) { alert('Couldn’t add ' + f.name); } }
+});
+
+/* ---------------- Swipe / buttons to move between entries ---------------- */
+function updateNavBtns(){
+  const i = visibleIds.indexOf(activeId);
+  document.getElementById('prevBtn').disabled = i <= 0;
+  document.getElementById('nextBtn').disabled = i < 0 || i >= visibleIds.length - 1;
+}
+function goEntry(dir){
+  const n = visibleIds[visibleIds.indexOf(activeId) + dir]; if (!n) return;
+  const inner = document.querySelector('.editor-inner');
+  inner.style.transition = 'none'; inner.style.opacity = '0'; inner.style.transform = `translateX(${dir * 28}px)`;
+  activeId = n; renderLibrary(); renderEditor();
+  document.querySelector('.editor-pane').scrollTop = 0;
+  requestAnimationFrame(() => { inner.style.transition = 'transform .22s, opacity .22s'; inner.style.opacity = ''; inner.style.transform = ''; });
+}
+document.getElementById('prevBtn').addEventListener('click', () => goEntry(-1));
+document.getElementById('nextBtn').addEventListener('click', () => goEntry(1));
+(() => {
+  const pane = document.querySelector('.editor-pane'); let x0 = 0, y0 = 0, t0 = 0, on = false;
+  pane.addEventListener('touchstart', e => { on = e.touches.length === 1 && !e.target.closest('#toolbar, input, select, button'); x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); }, { passive: true });
+  pane.addEventListener('touchend', e => {
+    if (!on) return; on = false;
+    const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+    if (Math.abs(dx) > 80 && Math.abs(dx) > 2.2 * Math.abs(dy) && Date.now() - t0 < 700 && getSelection().isCollapsed) goEntry(dx < 0 ? 1 : -1);   // swipe left = next (older)
+  }, { passive: true });
+})();
 
 async function initApp(){
   db = await openDB();
@@ -2088,6 +2390,7 @@ async function initApp(){
   const storedTheme = await dbGetSetting('theme');
   autoStart = (await dbGetSetting('autoStart')) || autoStart;
   autoEnd = (await dbGetSetting('autoEnd')) || autoEnd;
+  folders = (await dbGetSetting('folders')) || [];
   document.getElementById('autoStart').value = autoStart;
   document.getElementById('autoEnd').value = autoEnd;
   applyTheme(storedTheme || 'light');
