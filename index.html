@@ -143,9 +143,12 @@
     flex-shrink:0;
     background:var(--cream);
     border-right:1px solid var(--line);
-    overflow-y:auto;
-    padding:32px 0 48px;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    padding:32px 0 0;
   }
+  .library > .new-entry-btn{ flex:0 0 auto; }
   .library::-webkit-scrollbar{ width:8px; }
   .library::-webkit-scrollbar-thumb{ background:var(--line); border-radius:8px; }
 
@@ -1052,6 +1055,10 @@
   .g-btn{ background:none; border:1px solid var(--line); border-radius:8px; padding:4px 10px; font:inherit; font-size:12.5px; color:var(--charcoal); cursor:pointer; margin-left:6px; }
   .g-addline{ background:none; border:1px dashed var(--line); border-radius:10px; padding:8px 14px; font:inherit; font-size:13px; color:var(--gray); cursor:pointer; }
   @media (max-width:780px){ .entry-photos.gallery .g-track img{ height:220px; } }
+  .lib-scroll{ flex:1 1 auto; min-height:0; overflow-y:auto; padding-bottom:24px; }
+  .lib-scroll::-webkit-scrollbar{ width:8px; }
+  .lib-scroll::-webkit-scrollbar-thumb{ background:var(--line); border-radius:8px; }
+  .lib-foot{ flex:0 1 auto; max-height:42%; overflow-y:auto; border-top:1px solid var(--line); padding-top:10px; background:var(--cream); }
 </style>
 </head>
 <body>
@@ -1256,14 +1263,7 @@ try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('la
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         New Entry
       </button>
-      <div class="side-sec" id="folderSec">
-        <div class="side-head"><button type="button" class="side-toggle"><span class="chev">&#9662;</span> FOLDERS</button><button type="button" class="side-add" id="sideAddFolder" title="New folder">+</button></div>
-        <div class="side-list" id="folderNav"></div>
-      </div>
-      <div class="side-sec" id="tagSec" style="display:none">
-        <div class="side-head"><button type="button" class="side-toggle"><span class="chev">&#9662;</span> TAGS</button></div>
-        <div class="side-tags" id="tagNav"></div>
-      </div>
+      <div class="lib-scroll">
       <div class="date-chip" id="dateChip" style="display:none"></div>
       <div id="libraryList"></div>
       <div id="empty-library" class="empty-state hidden">
@@ -1280,6 +1280,17 @@ try { if (localStorage.getItem('mysaga_intro_seen')) document.getElementById('la
         </svg>
         <h3>No entries found</h3>
         <p>Try adjusting your search or exploring a different date.</p>
+      </div>
+      </div>
+      <div class="lib-foot">
+      <div class="side-sec" id="folderSec">
+        <div class="side-head"><button type="button" class="side-toggle"><span class="chev">&#9662;</span> FOLDERS</button><button type="button" class="side-add" id="sideAddFolder" title="New folder">+</button></div>
+        <div class="side-list" id="folderNav"></div>
+      </div>
+      <div class="side-sec" id="tagSec" style="display:none">
+        <div class="side-head"><button type="button" class="side-toggle"><span class="chev">&#9662;</span> TAGS</button></div>
+        <div class="side-tags" id="tagNav"></div>
+      </div>
       </div>
     </div>
 
