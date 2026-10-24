@@ -13,14 +13,19 @@ It runs on iPhone, Android, Windows, Mac, and Linux, works fully offline, and in
 ## Features
 
 - Rich-text writing: bold, italic, underline, strikethrough, headings, quotes, lists, links, and dividers
+- Photo preview next to each entry in the list (the first picture)
 - Pin favorite entries to the top
+- Delete an entry, or change its date
+- Folders and tags, with a multi-select mode to add many entries to a folder at once
+- Your folder or tag filter is remembered when you come back to the app
 - Search across the full text of every entry
 - Calendar view to jump to any day
 - Writing stats
 - Light and dark themes
 - Optional passcode lock (4 or 6 digits) with auto-lock
 - Works offline after the first load
-- Export all your entries as a JSON backup
+- One-tap backup of all entries, photos and folders to a JSON file
+- Import txt, md, csv, pdf, Day One and my saga. backups; folders in a backup or CSV are recreated automatically
 - No ads, no cloud, no sign-up
 
 ---
@@ -72,9 +77,10 @@ Please know what it is and isn't:
 ## Your data and backups
 
 - Entries live in the browser or app where you wrote them. **Each device, browser, and installed copy has its own separate diary.** There is no syncing.
-- **Back up:** Settings, then **Export all entries as JSON**, and keep the file somewhere safe.
+- **Back up:** Settings, then **Create a backup**, and keep the file somewhere safe. It includes your folders.
+- **Restore:** Settings, then **Import entries**, and pick the backup file. Folders are recreated and entries are filed back into them. Entries already on the device are skipped.
 - Clearing your browser's site data or uninstalling the app will delete your entries. Export first.
-- **Not available yet:** importing a backup, syncing between devices, and encrypting entries at rest.
+- **Not available yet:** syncing between devices and encrypting entries at rest.
 
 ---
 
@@ -124,6 +130,7 @@ The files appear in `desktop/dist/`. Windows SmartScreen may warn about an unkno
 
 ```
 index.html              the entire app (HTML, CSS, JS)
+                        (body text weight: change --fw-text near the end of the <style> block)
 manifest.webmanifest    install info (name, icons, colors)
 sw.js                   service worker for offline use
 icons/                  app and home-screen icons
